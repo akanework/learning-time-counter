@@ -1,0 +1,728 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>稼働時間・時給カウンター</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+JP:wght@400;500;600;700&family=Syne:wght@700;800&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --ink: #444951;
+      --muted: #7d8490;
+      --line: #dfe4e9;
+      --panel: rgba(255, 255, 255, 0.9);
+      --rose: #c98f9a;
+      --rose-soft: #fff0f3;
+      --blue: #709ab4;
+      --blue-soft: #edf6fb;
+      --sat: #5a9fd0;
+      --sun: #d97872;
+      --danger: #c65353;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: "IBM Plex Sans JP", sans-serif;
+      color: var(--ink);
+      background:
+        radial-gradient(ellipse 60% 45% at 5% 0%, #eaf5fb, transparent 60%),
+        radial-gradient(ellipse 55% 40% at 95% 0%, #fff0f3, transparent 58%),
+        #f7f8fa;
+    }
+
+    button, input { font: inherit; }
+    button { cursor: pointer; }
+
+    .wrap {
+      width: min(1080px, calc(100% - 32px));
+      margin: 0 auto;
+      padding: 14px 0 20px;
+    }
+
+    header {
+      display: flex;
+      align-items: baseline;
+      gap: 16px;
+      margin-bottom: 10px;
+    }
+
+    header h1 {
+      margin: 0;
+      font-family: Syne, "IBM Plex Sans JP", sans-serif;
+      font-size: 1.65rem;
+      font-weight: 800;
+    }
+
+    header p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 0.86rem;
+    }
+
+    .summary {
+      display: grid;
+      grid-template-columns: 1.1fr 1fr 1.15fr 1fr;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+
+    .summary-card {
+      min-width: 0;
+      padding: 11px 14px;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: var(--panel);
+    }
+
+    .summary-card.primary { background: var(--blue-soft); border-color: #c9e0ec; }
+    .summary-card.result { background: var(--rose-soft); border-color: #ecd0d6; }
+
+    .summary-label {
+      display: block;
+      margin-bottom: 3px;
+      color: var(--muted);
+      font-size: 0.75rem;
+      font-weight: 600;
+    }
+
+    .summary-value {
+      display: block;
+      min-height: 30px;
+      color: var(--ink);
+      font-size: 1.35rem;
+      font-weight: 700;
+      line-height: 1.35;
+      white-space: nowrap;
+    }
+
+    .summary-note {
+      margin-top: 2px;
+      color: var(--muted);
+      font-size: 0.68rem;
+    }
+
+    .income-wrap {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+
+    .income-wrap input {
+      width: 100%;
+      min-width: 0;
+      padding: 5px 8px;
+      border: 1px solid #ccd3da;
+      border-radius: 8px;
+      background: #fff;
+      color: var(--ink);
+      font-size: 1rem;
+      font-weight: 600;
+      outline: none;
+    }
+
+    .income-wrap input:focus {
+      border-color: var(--rose);
+      box-shadow: 0 0 0 3px rgba(201, 143, 154, 0.15);
+    }
+
+    .workspace {
+      padding: 13px 15px;
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      background: var(--panel);
+    }
+
+    .row {
+      display: grid;
+      grid-template-columns: 125px 1fr;
+      align-items: start;
+      gap: 12px;
+      padding: 10px 0;
+      border-bottom: 1px solid #edf0f3;
+    }
+
+    .row:first-child { padding-top: 0; }
+    .row:last-child { padding-bottom: 0; border-bottom: 0; }
+
+    .row-title {
+      margin: 7px 0 0;
+      color: var(--muted);
+      font-size: 0.78rem;
+      font-weight: 700;
+    }
+
+    .days, .amounts, .toolbar, .quick, .day-detail {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 7px;
+    }
+
+    .day-btn, .amt-btn, .util-btn {
+      padding: 7px 11px;
+      border: 1px solid #cfd6dc;
+      border-radius: 9px;
+      background: #fff;
+      color: var(--ink);
+      font-size: 0.86rem;
+      font-weight: 600;
+      transition: 0.15s ease;
+    }
+
+    .day-btn:hover, .amt-btn:hover, .util-btn:hover { transform: translateY(-1px); }
+    .day-btn.active { border-color: var(--rose); background: var(--rose); color: #fff; }
+    .day-btn.sat { border-color: #b8d8ed; background: #e8f4fc; color: #3d6f96; }
+    .day-btn.sat.active { border-color: var(--sat); background: var(--sat); color: #fff; }
+    .day-btn.sun { border-color: #efc7c3; background: #fff0ee; color: #b45a54; }
+    .day-btn.sun.active { border-color: var(--sun); background: var(--sun); color: #fff; }
+
+    .amt-btn.primary { border-color: #bdd8e7; background: var(--blue-soft); color: #456a7e; }
+    .amt-btn.break { border-color: #e5c0c7; background: var(--rose-soft); color: #965f69; }
+
+    .day-status {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+      min-height: 35px;
+    }
+
+    .day-subtotal {
+      display: flex;
+      align-items: baseline;
+      gap: 7px;
+      white-space: nowrap;
+    }
+
+    .day-subtotal-label { font-size: 0.82rem; font-weight: 600; }
+    .day-subtotal-value { font-size: 1.18rem; font-weight: 700; }
+
+    .day-detail { flex: 1; }
+
+    .detail-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 4px 5px 4px 8px;
+      border: 1px solid #d5dce2;
+      border-radius: 999px;
+      background: #fff;
+      font-size: 0.75rem;
+    }
+
+    .detail-chip.break-chip { border-color: #e8c6cc; background: #fff6f7; }
+
+    .detail-chip button {
+      width: 20px;
+      height: 20px;
+      padding: 0;
+      border: 0;
+      border-radius: 50%;
+      background: #f0f2f4;
+      color: var(--danger);
+      font-size: 0.8rem;
+      font-weight: 700;
+      line-height: 20px;
+    }
+
+    .empty-inline { align-self: center; color: var(--muted); font-size: 0.76rem; }
+
+    .quick input {
+      flex: 1 1 420px;
+      min-width: 0;
+      padding: 8px 11px;
+      border: 1px solid #cfd6dc;
+      border-radius: 9px;
+      background: #fff;
+      outline: none;
+      font-size: 0.86rem;
+    }
+
+    .quick input:focus {
+      border-color: var(--rose);
+      box-shadow: 0 0 0 3px rgba(201, 143, 154, 0.15);
+    }
+
+    .quick .add { border-color: var(--rose); background: var(--rose); color: #fff; }
+    .util-btn.ghost { background: #fff; }
+    .util-btn.danger { color: var(--danger); }
+
+    .microcopy {
+      margin: 5px 0 0;
+      color: var(--muted);
+      font-size: 0.7rem;
+    }
+
+    #textHint { color: var(--danger); font-weight: 600; }
+
+    @media (max-width: 760px) {
+      .wrap { width: min(100% - 20px, 620px); }
+      header { display: block; }
+      header p { margin-top: 2px; }
+      .summary { grid-template-columns: 1fr 1fr; }
+      .row { grid-template-columns: 1fr; gap: 5px; }
+      .row-title { margin: 0; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <h1>稼働時間・時給カウンター</h1>
+      <p>1週間の稼働時間から、理想月収に必要な時給を計算します</p>
+    </header>
+
+    <section class="summary" aria-live="polite">
+      <div class="summary-card primary">
+        <span class="summary-label">1週間の稼働時間</span>
+        <strong class="summary-value" id="totalHours">0時間</strong>
+        <div class="summary-note">平日 <span id="weekdayHours">0時間</span> ／ 週末 <span id="weekendHours">0時間</span></div>
+      </div>
+      <div class="summary-card">
+        <span class="summary-label">1か月の想定稼働時間</span>
+        <strong class="summary-value" id="monthlyHours">0時間</strong>
+        <div class="summary-note">4週換算</div>
+      </div>
+      <div class="summary-card">
+        <label class="summary-label" for="monthlyIncome">理想の月収</label>
+        <div class="income-wrap">
+          <input id="monthlyIncome" type="text" inputmode="numeric" placeholder="例：300000" aria-label="理想の月収" />
+          <span>円</span>
+        </div>
+        <div class="summary-note">半角・全角どちらでも入力できます</div>
+      </div>
+      <div class="summary-card result">
+        <span class="summary-label">必要な時給</span>
+        <strong class="summary-value" id="hourlyRate">―</strong>
+        <div class="summary-note">月収 ÷ 月の想定稼働時間</div>
+      </div>
+    </section>
+
+    <section class="workspace">
+      <div class="row">
+        <h2 class="row-title">1. 曜日を選ぶ</h2>
+        <div>
+          <div class="days" id="days" role="group" aria-label="曜日"></div>
+          <p class="microcopy">クリックで曜日を切り替え</p>
+        </div>
+      </div>
+
+      <div class="row">
+        <h2 class="row-title">選択中の内訳</h2>
+        <div class="day-status" aria-live="polite">
+          <div class="day-subtotal">
+            <span class="day-subtotal-label" id="daySubtotalLabel">月曜日の合計</span>
+            <span class="day-subtotal-value" id="daySubtotalValue">0時間</span>
+          </div>
+          <div class="day-detail" id="dayDetail"></div>
+        </div>
+      </div>
+
+      <div class="row">
+        <h2 class="row-title">2. 時間を足す</h2>
+        <div class="amounts">
+          <button type="button" class="amt-btn primary" data-minutes="10">+10分</button>
+          <button type="button" class="amt-btn primary" data-minutes="15">+15分</button>
+          <button type="button" class="amt-btn primary" data-minutes="30">+30分</button>
+          <button type="button" class="amt-btn primary" data-minutes="45">+45分</button>
+          <button type="button" class="amt-btn primary" data-minutes="60">+1時間</button>
+          <button type="button" class="amt-btn primary" data-minutes="120">+2時間</button>
+          <button type="button" class="amt-btn primary" data-minutes="300">+5時間</button>
+        </div>
+      </div>
+
+      <div class="row">
+        <h2 class="row-title">3. 時間を引く</h2>
+        <div class="amounts">
+          <button type="button" class="amt-btn break" data-minutes="-30" data-label="-30分">-30分</button>
+          <button type="button" class="amt-btn break" data-minutes="-45" data-label="-45分">-45分</button>
+          <button type="button" class="amt-btn break" data-minutes="-60" data-label="-1時間">-1時間</button>
+          <button type="button" class="amt-btn break" data-minutes="-120" data-label="-2時間">-2時間</button>
+        </div>
+      </div>
+
+      <div class="row">
+        <h2 class="row-title">テキスト入力</h2>
+        <div>
+          <div class="quick">
+            <input id="quickInput" type="text" placeholder="例：月水金：9-17（休憩1時間）／45×2、9-18、3時間" />
+            <button type="button" class="util-btn add" id="addText">追加</button>
+          </div>
+          <p class="microcopy">半角のみ　／　Enterは2回で追加　<span id="textHint"></span></p>
+        </div>
+      </div>
+
+      <div class="row">
+        <h2 class="row-title">リセット</h2>
+        <div class="toolbar">
+          <button type="button" class="util-btn ghost danger" id="resetBtn">全部クリア</button>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <script>
+    const DAYS = [
+      { key: "月", weekend: false },
+      { key: "火", weekend: false },
+      { key: "水", weekend: false },
+      { key: "木", weekend: false },
+      { key: "金", weekend: false },
+      { key: "土", weekend: true },
+      { key: "日", weekend: true },
+    ];
+
+    const dayMap = Object.fromEntries(DAYS.map((d) => [d.key, d]));
+    let selectedDay = "月";
+    let slots = [];
+
+    const daysEl = document.getElementById("days");
+    const totalHours = document.getElementById("totalHours");
+    const weekdayHours = document.getElementById("weekdayHours");
+    const weekendHours = document.getElementById("weekendHours");
+    const monthlyHours = document.getElementById("monthlyHours");
+    const monthlyIncome = document.getElementById("monthlyIncome");
+    const hourlyRate = document.getElementById("hourlyRate");
+    const quickInput = document.getElementById("quickInput");
+    const textHint = document.getElementById("textHint");
+    const daySubtotalLabel = document.getElementById("daySubtotalLabel");
+    const daySubtotalValue = document.getElementById("daySubtotalValue");
+    const dayDetail = document.getElementById("dayDetail");
+
+    function formatHours(minutes) {
+      const h = minutes / 60;
+      const abs = Math.abs(h);
+      const body = Number.isInteger(abs) ? String(abs) : abs.toFixed(1).replace(/\.0$/, "");
+      return h < 0 ? `-${body}` : body;
+    }
+
+    function formatHoursMinutes(minutes) {
+      const sign = minutes < 0 ? "-" : "";
+      const abs = Math.abs(minutes);
+      const h = Math.floor(abs / 60);
+      const m = abs % 60;
+      if (h === 0 && m === 0) return "0時間";
+      if (h === 0) return `${sign}${m}分`;
+      if (m === 0) return `${sign}${h}時間`;
+      return `${sign}${h}時間${m}分`;
+    }
+
+    function formatTotalHtml(minutes) {
+      const sign = minutes < 0 ? "-" : "";
+      const abs = Math.abs(minutes);
+      const h = Math.floor(abs / 60);
+      const m = abs % 60;
+      if (h === 0 && m === 0) return `0<span>時間</span>`;
+      if (h === 0) return `${sign}${m}<span>分</span>`;
+      if (m === 0) return `${sign}${h}<span>時間</span>`;
+      return `${sign}${h}<span>時間</span>${m}<span>分</span>`;
+    }
+
+    function renderDays() {
+      daysEl.innerHTML = "";
+      DAYS.forEach((d) => {
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "day-btn" + (d.key === selectedDay ? " active" : "");
+        if (d.key === "土") btn.classList.add("sat");
+        if (d.key === "日") btn.classList.add("sun");
+        btn.textContent = d.key;
+        btn.addEventListener("click", () => {
+          selectedDay = d.key;
+          renderDays();
+          updateDaySubtotal();
+        });
+        daysEl.appendChild(btn);
+      });
+    }
+
+    function addSlot(day, minutes, label, skipRender) {
+      if (!dayMap[day] || !minutes) return false;
+      slots.push({
+        id: crypto.randomUUID(),
+        day,
+        minutes,
+        label: label || `${formatHours(minutes)}時間`,
+      });
+      if (!skipRender) render();
+      return true;
+    }
+
+    function removeSlot(id) {
+      slots = slots.filter((s) => s.id !== id);
+      render();
+    }
+
+    function updateDaySubtotal() {
+      const daySlots = slots.filter((s) => s.day === selectedDay);
+      const minutes = daySlots.reduce((sum, s) => sum + s.minutes, 0);
+      const breakMinutes = daySlots
+        .filter((s) => s.minutes < 0)
+        .reduce((sum, s) => sum + Math.abs(s.minutes), 0);
+
+      daySubtotalLabel.textContent = `${selectedDay}曜日の合計`;
+      daySubtotalValue.textContent = breakMinutes > 0
+        ? `${formatHoursMinutes(minutes)}（休憩：${formatHoursMinutes(breakMinutes)}）`
+        : formatHoursMinutes(minutes);
+
+      dayDetail.innerHTML = "";
+      if (daySlots.length === 0) {
+        const empty = document.createElement("span");
+        empty.className = "empty-inline";
+        empty.textContent = "まだ入力されていません";
+        dayDetail.appendChild(empty);
+        return;
+      }
+
+      daySlots.forEach((slot) => {
+        const chip = document.createElement("span");
+        chip.className = "detail-chip" + (slot.minutes < 0 ? " break-chip" : "");
+        const text = document.createElement("span");
+        text.textContent = slot.label;
+        const del = document.createElement("button");
+        del.type = "button";
+        del.setAttribute("aria-label", `${slot.label}を削除`);
+        del.textContent = "×";
+        del.addEventListener("click", () => removeSlot(slot.id));
+        chip.append(text, del);
+        dayDetail.appendChild(chip);
+      });
+    }
+
+    function parseIncome() {
+      const normalized = monthlyIncome.value
+        .replace(/[０-９]/g, (ch) => String.fromCharCode(ch.charCodeAt(0) - 0xff10 + 0x30))
+        .replace(/[,，円\s]/g, "");
+      const value = Number(normalized);
+      return Number.isFinite(value) && value > 0 ? value : 0;
+    }
+
+    function updateHourlyRate(totalMinutes) {
+      const monthMinutes = totalMinutes * 4;
+      monthlyHours.textContent = formatHoursMinutes(monthMinutes);
+
+      const income = parseIncome();
+      if (income <= 0 || monthMinutes <= 0) {
+        hourlyRate.textContent = "―";
+        return;
+      }
+
+      const rate = Math.ceil(income / (monthMinutes / 60));
+      hourlyRate.textContent = `${rate.toLocaleString("ja-JP")}円`;
+    }
+
+    function render() {
+      let weekday = 0;
+      let weekend = 0;
+      slots.forEach((s) => {
+        if (dayMap[s.day].weekend) weekend += s.minutes;
+        else weekday += s.minutes;
+      });
+      const total = weekday + weekend;
+
+      totalHours.textContent = formatHoursMinutes(total);
+      weekdayHours.textContent = formatHoursMinutes(weekday);
+      weekendHours.textContent = formatHoursMinutes(weekend);
+      updateHourlyRate(total);
+      updateDaySubtotal();
+    }
+
+    function normalizeInput(text) {
+      return text
+        .replace(/[０-９]/g, (ch) => String.fromCharCode(ch.charCodeAt(0) - 0xff10 + 0x30))
+        .replace(/[〜～－﹣]/g, "-")
+        .replace(/[至到]/g, "-")
+        .replace(/　/g, " ")
+        .replace(/（/g, "(")
+        .replace(/）/g, ")")
+        .replace(/：/g, ":")
+        .replace(/[×✕✖＊]/g, "×");
+    }
+
+    function daysFromToken(token) {
+      if (/土日|週末/.test(token)) return ["土", "日"];
+      const found = [...token.matchAll(/[月火水木金土日]/g)].map((m) => m[0]);
+      return [...new Set(found)];
+    }
+
+    function splitDayBlocks(text) {
+      const re = /土日(?:曜)?|週末|(?:[月火水木金土日](?:曜日|曜)?)+/g;
+      const matches = [...text.matchAll(re)];
+      if (matches.length === 0) {
+        return [{ days: [selectedDay], body: text.trim() }];
+      }
+      return matches.map((match, i) => {
+        const start = match.index + match[0].length;
+        const end = i + 1 < matches.length ? matches[i + 1].index : text.length;
+        return {
+          days: daysFromToken(match[0]),
+          body: text.slice(start, end).trim(),
+        };
+      });
+    }
+
+    function durationToMinutes(n, unit) {
+      if (/分/.test(unit)) return n;
+      if (/時間|時|^h$/i.test(unit)) return n * 60;
+      return n >= 10 ? n : n * 60;
+    }
+
+    function extractBreaks(body) {
+      const breaks = [];
+      const re = /\(?\s*(?:(?:休憩\s*(\d+(?:\.\d+)?)\s*(時間|時|h|分)?)|(?:(\d+(?:\.\d+)?)\s*(時間|時|h|分)\s*休憩))\s*\)?/gi;
+      const cleaned = body.replace(re, (_, afterNum, afterUnit, beforeNum, beforeUnit) => {
+        const num = afterNum || beforeNum;
+        const unit = afterUnit || beforeUnit || "時間";
+        const minutes = durationToMinutes(Number(num), unit);
+        breaks.push({
+          minutes: -minutes,
+          label: `休憩 ${formatHoursMinutes(minutes)}`,
+        });
+        return " ";
+      });
+      return { breaks, cleaned };
+    }
+
+    function extractRanges(body) {
+      const ranges = [];
+      const re = /(\d{1,2})\s*:?\s*(\d{0,2})\s*-\s*(\d{1,2})\s*:?\s*(\d{0,2})/g;
+      const cleaned = body.replace(re, (_, a, b, c, d) => {
+        const sh = Number(a);
+        const sm = Number(b || 0);
+        const eh = Number(c);
+        const em = Number(d || 0);
+        let minutes = eh * 60 + em - (sh * 60 + sm);
+        if (minutes <= 0) minutes += 24 * 60;
+        const label = `${sh}:${String(sm).padStart(2, "0")}–${eh}:${String(em).padStart(2, "0")}`;
+        ranges.push({ minutes, label });
+        return " ";
+      });
+      return { ranges, cleaned };
+    }
+
+    function extractDurations(body) {
+      const items = [];
+      const re = /(\d+(?:\.\d+)?)\s*(時間|時|h|分)/gi;
+      let match;
+      while ((match = re.exec(body)) !== null) {
+        const minutes = durationToMinutes(Number(match[1]), match[2]);
+        items.push({
+          minutes,
+          label: /分/.test(match[2]) ? `${minutes}分` : `${formatHours(minutes)}時間`,
+        });
+      }
+      return items;
+    }
+
+    function parseBlock(days, body) {
+      const results = [];
+      if (!days.length) return results;
+
+      const { breaks, cleaned: withoutBreaks } = extractBreaks(body);
+      const { ranges, cleaned: withoutRange } = extractRanges(withoutBreaks);
+      const durations = extractDurations(withoutRange);
+
+      days.forEach((day) => {
+        ranges.forEach((r) => results.push({ day, ...r }));
+        durations.forEach((d) => results.push({ day, ...d }));
+        breaks.forEach((b) => results.push({ day, ...b }));
+      });
+
+      return results;
+    }
+
+    function expandMultiplications(text) {
+      // 45×2 / 45分×2 / 2時間×3 → 同じ時間を繰り返しに展開
+      return text.replace(
+        /(\d+(?:\.\d+)?)\s*(時間|時|h|分)?\s*[×xX✕✖＊*]\s*(\d+)/g,
+        (_, num, unit, count) => {
+          const times = Math.min(Number(count), 30);
+          if (!times || times < 1) return _;
+          const u = unit || "分";
+          return Array.from({ length: times }, () => `${num}${u}`).join("、");
+        }
+      );
+    }
+
+    function parseMany(text) {
+      const normalized = expandMultiplications(normalizeInput(text)).trim();
+      if (!normalized) return [];
+      return splitDayBlocks(normalized).flatMap((block) => parseBlock(block.days, block.body));
+    }
+
+    document.querySelectorAll(".amt-btn").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const minutes = Number(btn.dataset.minutes);
+        const label = btn.dataset.label || `${formatHours(minutes)}時間`;
+        addSlot(selectedDay, minutes, label);
+      });
+    });
+
+    document.getElementById("addText").addEventListener("click", () => {
+      const parsedList = parseMany(quickInput.value);
+      if (parsedList.length === 0) {
+        textHint.textContent = "書けませんでした。例の文章をそのまま貼ってみてください";
+        enterArmed = false;
+        return;
+      }
+      parsedList.forEach((parsed, i) => {
+        addSlot(parsed.day, parsed.minutes, parsed.label, i < parsedList.length - 1);
+      });
+      quickInput.value = "";
+      enterArmed = false;
+      textHint.textContent = "";
+    });
+
+    let enterArmed = false;
+    let enterTimer = null;
+
+    quickInput.addEventListener("keydown", (e) => {
+      if (e.key !== "Enter") return;
+      if (e.isComposing || e.keyCode === 229) return;
+
+      e.preventDefault();
+
+      if (!enterArmed) {
+        enterArmed = true;
+        textHint.textContent = "もう一度 Enter を押すと追加されます";
+        clearTimeout(enterTimer);
+        enterTimer = setTimeout(() => {
+          enterArmed = false;
+        }, 2500);
+        return;
+      }
+
+      enterArmed = false;
+      clearTimeout(enterTimer);
+      document.getElementById("addText").click();
+    });
+
+    quickInput.addEventListener("input", () => {
+      enterArmed = false;
+      clearTimeout(enterTimer);
+      textHint.textContent = "";
+    });
+
+    monthlyIncome.addEventListener("input", () => {
+      const normalized = monthlyIncome.value
+        .replace(/[０-９]/g, (ch) => String.fromCharCode(ch.charCodeAt(0) - 0xff10 + 0x30))
+        .replace(/\D/g, "");
+      monthlyIncome.value = normalized ? Number(normalized).toLocaleString("ja-JP") : "";
+      const total = slots.reduce((sum, slot) => sum + slot.minutes, 0);
+      updateHourlyRate(total);
+    });
+
+    document.getElementById("resetBtn").addEventListener("click", () => {
+      slots = [];
+      render();
+    });
+
+    renderDays();
+    render();
+  </script>
+</body>
+</html>
